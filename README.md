@@ -5,7 +5,7 @@
 The objective of our performance tooling is to gather the following insights:
 
 - Upon N number of records/data ingestion, measure:
-  - CPU usage, user time and system time 
+  - CPU usage, user time and system time
   - Memory usage
   - Total time required to process the data
 
@@ -13,7 +13,7 @@ Tests aim to run for a fixed number of time, data load can be increased per roun
 
 ## How it Works
 
-Every tool available is written on top of a generic framework that provides interfaces to load data files and gather metrics from a running process. 
+Every tool available is written on top of a generic framework that provides interfaces to load data files and gather metrics from a running process.
 
 In the following diagram, using flb-tail-writer tool as an example, it writes N amount of data to a custom log file, Fluent Bit through [Tail input plugin](https://docs.fluentbit.io/manual/input/tail) reads information from the file. Internally the Linux Kernel exposes Fluent Bit process metrics through ProcFS, where flb-tail-writer _before_ and _after_ every write/round operation gather metrics and provides insights of resources consumption.
 
@@ -61,7 +61,7 @@ records  write (bytes)     write |  % cpu  user t (ms)  system t (ms)  Mem (byte
       0              0       0 b |   0.00            0              0      6262784  5.97M
       0              0       0 b |   0.00            0              0      6262784  5.97M
       0              0       0 b |   0.00            0              0      6262784  5.97M
-      
+
 - Summary
   - Process     : fluent-bit
   - PID         : 28781
@@ -77,6 +77,7 @@ records  write (bytes)     write |  % cpu  user t (ms)  system t (ms)  Mem (byte
 | Tool        |                     Fluent Bit Target                     | Description                                  |
 | ----------- | :-------------------------------------------------------: | -------------------------------------------- |
 | Tail Writer | [Tail input](https://docs.fluentbit.io/manual/input/tail) | Writes large amount of data into a log file. |
+| TCP Writer  | [TCP input](https://docs.fluentbit.io/manual/input/tail), [Syslog input](https://docs.fluentbit.io/manual/input/syslog) (tcp mode) | Writes large amount of data into a log file. |
 
 ## Build Instructions
 
@@ -97,19 +98,19 @@ $ make
 
 ## Comments about Performance and Benchmarking
 
-Performance is always critical and when managing data at high scale there are many corners where is possible to improve and make it better. 
+Performance is always critical and when managing data at high scale there are many corners where is possible to improve and make it better.
 
-When measuring performance is important to understand the variables that can affect a running _monitored_ service. If you are comparing same tool like Fluent Bit v/s Fluent Bit is not a hard task, but if you aim to compare Fluent Bit against other solution in the same space, you have to do an extra work and make sure that the setup and conditions are the same, e.g: make sure buffer sizes are the same on both tools. 
+When measuring performance is important to understand the variables that can affect a running _monitored_ service. If you are comparing same tool like Fluent Bit v/s Fluent Bit is not a hard task, but if you aim to compare Fluent Bit against other solution in the same space, you have to do an extra work and make sure that the setup and conditions are the same, e.g: make sure buffer sizes are the same on both tools.
 
->  Running a performance test using default options in different services will lead to unreliable results. 
+>  Running a performance test using default options in different services will lead to unreliable results.
 
-Story: some years ago I was working in one of my [HTTP servers](http://monkey-project.com) projects. We got into a benchmark virtual battle against a proprietary web server. They claimed aims to be faster that all open source options available (e.g: Nginx, Lighttpd, Apache, etc)... and benchmark results shows that their project was _outstanding_ leaving every other option behind. 
+Story: some years ago I was working in one of my [HTTP servers](http://monkey-project.com) projects. We got into a benchmark virtual battle against a proprietary web server. They claimed aims to be faster that all open source options available (e.g: Nginx, Lighttpd, Apache, etc)... and benchmark results shows that their project was _outstanding_ leaving every other option behind.
 
-After digging a bit more and starting measuring what was doing that web server from a operating system level, we ended up discovering that it was _caching_ every HTTP request and response, so if it get one million request for the same end-point, it sends the same response over and over, without extra processing. Basically it was _prepared_ before hand to cheat if it was benchmarked. 
+After digging a bit more and starting measuring what was doing that web server from a operating system level, we ended up discovering that it was _caching_ every HTTP request and response, so if it get one million request for the same end-point, it sends the same response over and over, without extra processing. Basically it was _prepared_ before hand to cheat if it was benchmarked.
 
 > Upon sending a HTTP request with an URI that changed the query string variable (e.g: /?a=1..) every time, it was slow as hell :)
 
-On that moment I learn how important was to measure every aspect of a running service. That's why the simple metrics of CPU time in user/kernel space and memory usage are really important. 
+On that moment I learn how important was to measure every aspect of a running service. That's why the simple metrics of CPU time in user/kernel space and memory usage are really important.
 
 final tip: if you are the user, try to do your own benchmarks for your own conditions and scenario. Trust in our performance tooling but don't trust in benchmarks reports made by us (maintainers) or vendors XD .
 
