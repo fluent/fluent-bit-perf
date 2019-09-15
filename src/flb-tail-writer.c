@@ -86,6 +86,7 @@ static int run_fs_writer(pid_t pid,
     int ret;
     int round_records;
     int report_fd = -1;
+    int wait_time = 3;
     size_t round_bytes;
     off_t off = 0;
     off_t off_rec;
@@ -106,7 +107,7 @@ static int run_fs_writer(pid_t pid,
 
     /* Report file for process monitoring */
     if (pid >= 0) {
-        r = flb_report_create(report, fmt_report);
+        r = flb_report_create(report, fmt_report, pid, wait_time);
         if (!r) {
             fprintf(stderr, "error: cannot initialize report");
             return -1;
@@ -260,7 +261,6 @@ static int run_fs_writer(pid_t pid,
      */
     if (pid >= 0) {
         int count = 0;
-        int wait = 3;
         int test_time;
         char *tmp;
 
@@ -280,35 +280,18 @@ static int run_fs_writer(pid_t pid,
             }
 
 
-            if (count >= wait) {
+            if (count >= wait_time) {
+                flb_proc_stat_destroy(t1);
+                flb_proc_stat_destroy(t2);
                 break;
             }
-
-            /* Count total number of bytes in memory */
-            total_cpu += flb_report_cpu_usage(r, t1, t2);
-            total_mem += t2->r_rss;
 
             flb_proc_stat_destroy(t1);
             flb_proc_stat_destroy(t2);
 
         }
 
-        end_time = time(NULL);
-        test_time = end_time - start_time - wait;
-
-
-        fprintf(stdout, "\n");
-        fprintf(stdout, "- Summary\n");
-        fprintf(stdout, "  - Process     : %s\n", proc_name);
-        fprintf(stdout, "  - PID         : %i\n", pid);
-        fprintf(stdout, "  - Elapsed time: %li seconds\n", test_time);
-
-        /* Average resource usage */
-        tmp = flb_report_human_readable_size(total_mem / test_time);
-        fprintf(stdout, "  - Avg Memory  : %s\n", tmp);
-        free(tmp);
-
-        fprintf(stdout, "  - Avg CPU     : %d%%\n", total_cpu / test_time);
+        flb_report_summary(r);
     }
 
     if (r) {
