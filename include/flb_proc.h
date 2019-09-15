@@ -33,6 +33,10 @@
 
 /* Our tast struct to read the /proc/PID/stat values */
 struct flb_proc_task {
+    /* Stat creation timestamp */
+    struct timespec ts;
+
+    /* Process data */
     char name[256];
     unsigned long utime;	  /* %lu */
     unsigned long stime; 	  /* %lu */

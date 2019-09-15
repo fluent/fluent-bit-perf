@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -84,6 +85,7 @@ struct flb_proc_task *flb_proc_stat_create(pid_t pid)
     char *p, *q;
     char *buf;
     char pid_path[PROC_PID_SIZE];
+    char tmp[256];
     struct flb_proc_task *t;
 
     t = calloc(1, sizeof(struct flb_proc_task));
@@ -115,11 +117,13 @@ struct flb_proc_task *flb_proc_stat_create(pid_t pid)
     char *x = "%*d %s %*c %*d %*d %*d %*d %*d %*lu %*lu %*lu %*lu %*lu %lu %lu %*ld %*ld %*ld %*ld %*ld %*ld %*lu %*lu %ld ";
 
     fields = sscanf(buf, x,
-                    &t->name,
+                    &tmp,
                     &t->utime,
                     &t->stime,
                     &t->rss);
 
+    p = strndup(tmp + 1, strlen(tmp + 1) - 1);
+    memcpy(t->name, p, strlen(p));
 
     /* Internal conversion */
     t->r_rss      = (t->rss * getpagesize());
@@ -128,6 +132,10 @@ struct flb_proc_task *flb_proc_stat_create(pid_t pid)
     t->r_stime_s  = (t->stime / cpu_hz);
     t->r_stime_ms = ((t->stime * 1000) / cpu_hz);
 
+    /* Set timestamp */
+    clock_gettime(CLOCK_REALTIME, &t->ts);
+
+    free(buf);
     return t;
 }
 
