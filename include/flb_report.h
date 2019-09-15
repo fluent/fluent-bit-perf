@@ -27,13 +27,25 @@
 #include "flb_proc.h"
 
 struct flb_report {
-    int format;         /* report output format */
-    int fd;             /* report file descriptor */
-    int cpu_count;      /* number of CPUs */
-    int cpu_ticks;      /* cpu clock ticks */
+    int format;          /* report output format */
+    int fd;              /* report file descriptor */
+    int cpu_count;       /* number of CPUs */
+    int cpu_ticks;       /* cpu clock ticks */
+    int snapshots;       /* number of stats snapshots */
+    int wait_time;       /* monitoring wait time */
+
+    /* Process info */
+    pid_t pid;           /* monitored process ID */
+    char *name;          /* process name */
+
+    /* General stats */
+    size_t sum_mem;      /* total number of bytes reported per snapshot */
+    int sum_cpu_count;   /* CPU snapshots summarized */
+    double sum_cpu;      /* total %CPU usage */
+    double sum_duration; /* total elapsed time of tests */
 };
 
-struct flb_report *flb_report_create(char *out, int format);
+struct flb_report *flb_report_create(char *out, int format, int pid, int wait);
 int flb_report_stats(struct flb_report *r, int records,
                      size_t bytes,
                      struct flb_proc_task *t1, struct flb_proc_task *t2);
@@ -42,6 +54,7 @@ char *flb_report_human_readable_size(long size);
 double flb_report_cpu_usage(struct flb_report *r,
                             struct flb_proc_task *t1, struct flb_proc_task *t2);
 
+int flb_report_summary(struct flb_report *r);
 int flb_report_destroy(struct flb_report *r);
 
 #endif
