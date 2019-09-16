@@ -59,21 +59,21 @@ char *flb_report_human_readable_size(long size)
 static void report_txt_header(struct flb_report *r)
 {
     dprintf(r->fd,
-            " records   write (b)     write   secs |  %% cpu  user time (ms)  "
-            "sys time (ms)  Mem (bytes)      Mem\n");
+            " records   write (b)     write   secs |  %% cpu  user (ms)  "
+            "sys (ms)  Mem (bytes)      Mem\n");
     dprintf(r->fd,
-            "--------  ----------  --------  ----- + ------  --------------  "
-            "-------------  -----------  -------\n");
+            "--------  ----------  --------  ----- + ------  ---------  "
+            "--------  -----------  -------\n");
 }
 
 static void report_markdown_header(struct flb_report *r)
 {
     dprintf(r->fd,
-            "| records | write (b) | write | secs | %%cpu | user time (ms) "
-            "| sys time (ms) | Mem (bytes) | Mem |\n");
+            "| records | write (b) | write | secs | %%cpu | user (ms) "
+            "| sys (ms) | Mem (bytes) | Mem |\n");
     dprintf(r->fd,
-            "|    ---: |      ---: |  ---: | ---: | ---: |           ---: "
-            "|          ---: |        ---: |---: |\n");
+            "|    ---: |      ---: |  ---: | ---: | ---: |      ---: "
+            "|     ---: |        ---: |---: |\n");
 }
 
 struct flb_report *flb_report_create(char *out, int format, int pid, int wait)
@@ -184,7 +184,7 @@ int flb_report_stats(struct flb_report *r, int records,
     r->sum_duration += duration;
 
     if (r->format == FLB_REPORT_TXT) {
-        dprintf(r->fd, "%8d  %10zu  %8s  %5.2lf | %6.2lf  %14ld  %13ld %12ld %8s\n",
+        dprintf(r->fd, "%8d  %10zu  %8s  %5.2lf | %6.2lf  %9ld  %8ld %12ld %8s\n",
                 records,
                 bytes,
                 bytes_hr,
