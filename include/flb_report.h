@@ -39,10 +39,12 @@ struct flb_report {
     char *name;          /* process name */
 
     /* General stats */
+    size_t sum_bytes;    /* Total number of bytes */
     size_t sum_mem;      /* total number of bytes reported per snapshot */
     int sum_cpu_count;   /* CPU snapshots summarized */
     double sum_cpu;      /* total %CPU usage */
     double sum_duration; /* total elapsed time of tests */
+
 };
 
 struct flb_report *flb_report_create(char *out, int format, int pid, int wait);

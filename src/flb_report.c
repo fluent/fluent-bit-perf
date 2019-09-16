@@ -109,6 +109,7 @@ struct flb_report *flb_report_create(char *out, int format, int pid, int wait)
     r->snapshots = 0;
     r->wait_time = wait;
     r->pid = pid;
+    r->sum_bytes = 0;
     r->sum_mem = 0;
     r->sum_cpu = 0.0;
 
@@ -182,6 +183,7 @@ int flb_report_stats(struct flb_report *r, int records,
         r->sum_cpu_count++;
     }
     r->sum_duration += duration;
+    r->sum_bytes += bytes;
 
     if (r->format == FLB_REPORT_TXT) {
         dprintf(r->fd, "%8d  %10zu  %8s  %5.2lf | %6.2lf  %9ld  %8ld %12ld %8s\n",
@@ -217,6 +219,7 @@ int flb_report_stats(struct flb_report *r, int records,
 int flb_report_summary(struct flb_report *r)
 {
     char *tmp;
+    char unit[32];
     double duration = r->sum_duration - r->wait_time;
 
     dprintf(r->fd, "\n");
@@ -234,6 +237,10 @@ int flb_report_summary(struct flb_report *r)
     }
 
     dprintf(r->fd, "  - Avg CPU     : %.2lf%%\n", r->sum_cpu / r->sum_cpu_count);
+
+    tmp = flb_report_human_readable_size(r->sum_bytes / r->sum_duration);
+    dprintf(r->fd, "  - Avg Rate    : %s/sec\n", tmp);
+    free(tmp);
 }
 
 int flb_report_destroy(struct flb_report *r)
