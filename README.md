@@ -1,6 +1,6 @@
 # Fluent Bit Performance Test Tools
 
-[Fluent Bit](https://fluentbit.io) is a fast and lightweight log processor. As part of our continuous development and testing model, we are creating specific tools to test performance under different data load scenarios.
+[Fluent Bit](https://fluentbit.io) is a fast and lightweight log processor. As part of our continuous development and testing model, we provide specific tools to test performance under different data load scenarios.
 
 The objective of our performance tooling is to gather the following insights:
 
@@ -13,9 +13,9 @@ Tests aim to run for a fixed number of time, data load can be increased per roun
 
 ## How it Works
 
-Every tool available is written on top of a generic framework that provides interfaces to load data files and gather metrics from a running process.
+Every tool available is written on top of a generic framework that provides interfaces to load data files, gather metrics nad generate a report from a running process.
 
-In the following diagram, using flb-tail-writer tool as an example, it writes N amount of data to a custom log file, Fluent Bit through [Tail input plugin](https://docs.fluentbit.io/manual/input/tail) reads information from the file. Internally the Linux Kernel exposes Fluent Bit process metrics through ProcFS, where flb-tail-writer _before_ and _after_ every write/round operation gather metrics and provides insights of resources consumption.
+In the following diagram, using ```flb-tail-writer``` tool as an example, it writes N amount of records (lines) to a custom log file, Fluent Bit through [Tail input plugin](https://docs.fluentbit.io/manual/input/tail) reads information from the file. Internally the Linux Kernel exposes Fluent Bit process metrics through ProcFS, where flb-tail-writer _before_ and _after_ every write/round operation gather metrics and provides insights of resources consumption.
 
 ```
 +-----------------+                 +----------------+
@@ -35,7 +35,7 @@ In the following diagram, using flb-tail-writer tool as an example, it writes N 
   +-------------+     +------------------+
 ```
 
-As an example, consider the following test using _flb-tail-writer_ where:
+As an example, consider the following test using ```flb-tail-writer``` where:
 
 - Reads samples of data from _data.log_ file
 - Output data will be written to _out.log_ file
@@ -44,40 +44,49 @@ As an example, consider the following test using _flb-tail-writer_ where:
 - Stop Monitoring Fluent Bit process once the process becomes almost idle for 3 seconds.
 
 ```bash
-$ bin/flb-tail-writer -d data.log -r 100000 -s 10 -o out.log -p `pidof fluent-bit`
-
-records  write (bytes)     write |  % cpu  user t (ms)  system t (ms)  Mem (bytes)    Mem
--------- -------------  -------- + ------  -----------  -------------  -----------  -----
- 100000       13210635    12.60M |   3.00           30              0      6234112  5.95M
- 100000       13210635    12.60M |   6.00           30             30      6086656  5.80M
- 100000       13210635    12.60M |   5.00           40             10      6111232  5.83M
- 100000       13210635    12.60M |   5.00           30             20      6205440  5.92M
- 100000       13210635    12.60M |   6.00           30             30      6205440  5.92M
- 100000       13210635    12.60M |   5.00           40             10      6262784  5.97M
- 100000       13210635    12.60M |   6.00           40             20      6262784  5.97M
- 100000       13210635    12.60M |   6.00           30             30      6262784  5.97M
- 100000       13210635    12.60M |   4.00           20             20      6262784  5.97M
- 100000       13210635    12.60M |   5.00           40             10      6262784  5.97M
-      0              0       0 b |   0.00            0              0      6262784  5.97M
-      0              0       0 b |   0.00            0              0      6262784  5.97M
-      0              0       0 b |   0.00            0              0      6262784  5.97M
+ records   write (b)     write   secs |  % cpu  user (ms)  sys (ms)  Mem (bytes)      Mem
+--------  ----------  --------  ----- + ------  ---------  --------  -----------  -------
+ 1000000   131881447   125.77M   1.09 |  58.04        570        60     38785024   36.99M
+ 1000000   131881447   125.77M   1.08 |  61.22        590        70     61644800   58.79M
+ 1000000   131881447   125.77M   1.07 |  57.70        560        60     88682496   84.57M
+ 1000000   131881447   125.77M   1.10 |  57.97        590        50    115126272  109.79M
+ 1000000   131881447   125.77M   1.10 |  62.70        630        60    146522112  139.73M
+ 1000000   131881447   125.77M   1.09 |  67.85        710        30    155217920  148.03M
+ 1000000   131881447   125.77M   1.07 |  66.07        640        70      5005312    4.77M
+ 1000000   131881447   125.77M   1.08 |  61.83        600        70      4677632    4.46M
+ 1000000   131881447   125.77M   1.08 |  60.42        630        20      4677632    4.46M
+ 1000000   131881447   125.77M   1.08 |  65.09        610        90      4677632    4.46M
+       0           0       0 b   1.00 |   0.00          0         0      4677632    4.46M
+       0           0       0 b   1.00 |   0.00          0         0      4677632    4.46M
+       0           0       0 b   1.00 |   0.00          0         0      4677632    4.46M
 
 - Summary
   - Process     : fluent-bit
-  - PID         : 28781
-  - Elapsed time: 14 seconds
-  - Avg Memory  : 8.35M
-  - Avg CPU     : 11%
+  - PID         : 27207
+  - Elapsed Time: 10.84 seconds
+  - Avg Memory  : 46.88M
+  - Avg CPU     : 61.89%
 ```
 
+## Report Details
 
+The report have two panes, left side belongs to the information provided by the running tools in terms
+of data ingestion and the right side the metrics collected from the monitored process.
+
+| column    | description                                                |
+| --------- | ---------------------------------------------------------- |
+| records   | Number of records ingested in that specific round.         |
+| write (b) | Total size of the records ingested represented in _bytes_. |
+| write     | Human readable version of written bytes.                   |
+| secs      | Elapsed time on writing the data.                          |
+| % cpu     | Average CPU usage for the monitored process.               |
 
 ## Tools Available
 
 | Tool        |                     Fluent Bit Target                     | Description                                  |
 | ----------- | :-------------------------------------------------------: | -------------------------------------------- |
 | Tail Writer | [Tail input](https://docs.fluentbit.io/manual/input/tail) | Writes large amount of data into a log file. |
-| TCP Writer  | [TCP input](https://docs.fluentbit.io/manual/input/tail), [Syslog input](https://docs.fluentbit.io/manual/input/syslog) (tcp mode) | Writes large amount of data into a log file. |
+| TCP Writer  | [TCP input](https://docs.fluentbit.io/manual/input/tail), [Syslog input](https://docs.fluentbit.io/manual/input/syslog) (tcp mode) | Writes large amount of data over a TCP socket. |
 
 ## Build Instructions
 
