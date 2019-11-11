@@ -41,15 +41,81 @@
 #define DEFAULT_RECORDS           1000  /* 1000 records per second */
 #define DEFAULT_INC_BY               0  /* no increase             */
 #define DEFAULT_SECONDS             10  /* test time: 10 seconds   */
+#define DEFAULT_CONCURRENCY          1  /* one active connection   */
 
 /* Default network host and port */
 #define DEFAULT_PORT            "5170"
 #define DEFAULT_HOST       "127.0.0.1"
 
+struct tcp_conn {
+    int fd;
+    struct mk_list _head;
+};
+
+static void tcp_connect_destroy(struct mk_list *list)
+{
+    struct mk_list *tmp;
+    struct mk_list *head;
+    struct tcp_conn *conn;
+
+    mk_list_foreach_safe(head, tmp, list) {
+        conn = mk_list_entry(head, struct tcp_conn, _head);
+        mk_list_del(&conn->_head);
+        if (conn->fd > 0) {
+            close(conn->fd);
+        }
+        free(conn);
+    }
+
+    free(list);
+}
+
+static struct mk_list *tcp_connect_create(int connections, char *host, char *port)
+{
+    int i;
+    int fd;
+    struct mk_list *list;
+    struct tcp_conn *conn;
+
+    list = malloc(sizeof(struct mk_list));
+    if (!list) {
+        perror("malloc");
+        return NULL;
+    }
+    mk_list_init(list);
+
+    for (i = 0; i < connections; i++) {
+        conn = calloc(1, sizeof(struct tcp_conn));
+        if (!conn) {
+            perror("calloc");
+            fprintf(stderr, "error creating connection #%i to %s:%s\n",
+                    i, host, port);
+            tcp_connect_destroy(list);
+            return NULL;
+        }
+
+        /* Perform TCP connection */
+        fd = flb_net_tcp_connect(host, port);
+        if (fd == -1) {
+            fprintf(stderr, "error creating connection #%i to %s:%s\n",
+                    i, host, port);
+            tcp_connect_destroy(list);
+            return NULL;
+        }
+
+        conn->fd = fd;
+        mk_list_add(&conn->_head, list);
+    }
+
+    return list;
+}
+
 static int flb_help(int rc)
 {
-    printf("Usage: flb-tail-writer [OPTIONS]\n\n");
+    printf("Usage: flb-tcp-writer [OPTIONS]\n\n");
     printf("Available options\n");
+    printf("  -c, --concurrency=N\t\tconcurrency level (default: %i)\n",
+           DEFAULT_CONCURRENCY);
     printf("  -d, --datafile=PATH\t\tspecify source data file\n");
     printf("  -p  --pid=FLB_PID\t\tFluent Bit PID used gather metrics\n");
     printf("  -o, --output=HOST:PORT\tset remote TCP Host and Port\n");
@@ -82,6 +148,7 @@ static int run_tcp_writer(pid_t pid,
                           int fmt_report,
                           char *in_data_file,
                           char *host, char *port,
+                          int n_cons,
                           int records, int increase_by,
                           int seconds)
 {
@@ -90,6 +157,7 @@ static int run_tcp_writer(pid_t pid,
     int in_fd;
     int out_fd;
     int ret;
+    int conn_records;
     int round_records;
     int report_fd = -1;
     int wait_time = 3;
@@ -108,6 +176,9 @@ static int run_tcp_writer(pid_t pid,
     struct flb_proc_task *t1;
     struct flb_proc_task *t2;
     struct flb_report *r = NULL;
+    struct mk_list *head;
+    struct mk_list *connections;
+    struct tcp_conn *conn;
     time_t start_time;
     time_t end_time;
 
@@ -120,12 +191,9 @@ static int run_tcp_writer(pid_t pid,
         }
     }
 
-    out_fd = flb_net_tcp_connect(host, port);
-    if (out_fd == -1) {
-        fprintf(stderr, "tcp connection failed\n");
-        if (r) {
-            flb_report_destroy(r);
-        }
+    /* Create TCP connections */
+    connections = tcp_connect_create(n_cons, host, port);
+    if (!connections) {
         return -1;
     }
 
@@ -141,10 +209,13 @@ static int run_tcp_writer(pid_t pid,
         return -1;
     }
 
+    /* Get the number of records that will be send per connection */
+    conn_records = (records / n_cons);
+
     /* Retrieve the final offset of 'records' */
-    ret = flb_data_file_offset_records(records, data_buf, data_size, &off_rec);
+    ret = flb_data_file_offset_records(conn_records, data_buf, data_size, &off_rec);
     if (ret == -1) {
-        fprintf(stderr, "error: cannot find %i number of records\n", records);
+        fprintf(stderr, "error: cannot find %i number of records\n", conn_records);
         flb_data_file_unload(data_buf, data_size);
         close(in_fd);
         close(out_fd);
@@ -158,7 +229,7 @@ static int run_tcp_writer(pid_t pid,
     ret = flb_data_file_offset_records(increase_by, data_buf, data_size,
                                        &off_inc);
     if (ret == -1) {
-        fprintf(stderr, "error: cannot find %i number of records\n", records);
+        fprintf(stderr, "error: cannot find %i number of records\n", conn_records);
         flb_data_file_unload(data_buf, data_size);
         close(in_fd);
         close(out_fd);
@@ -195,41 +266,46 @@ static int run_tcp_writer(pid_t pid,
             }
         }
 
-        /*
-         * Use zero-copy strategy with sendfile(2). In benchmarking we want
-         * to avoid extra Kernel work, this is a Linux specific feature.
-         */
-        off = 0;
-        /* Dispatch the records chunk */
-        bytes = sendfile(out_fd, in_fd, &off, off_rec);
-        if (bytes == -1) {
-            perror("sendfile");
-            fprintf(stderr, "error: exception on writing records chunk\n");
-        }
-        else {
-            total_bytes += bytes;
-            total_records += records;
-            round_records = records;
-            round_bytes = bytes;
-        }
+        mk_list_foreach(head, connections) {
+            conn = mk_list_entry(head, struct tcp_conn, _head);
+            out_fd = conn->fd;
 
-        if (increase_by > 0 && i > 0) {
             /*
-             * Send incremental records, yeah, this involve a second system
-             * call but it's better than writev() and data-copy.
+             * Use zero-copy strategy with sendfile(2). In benchmarking we want
+             * to avoid extra Kernel work, this is a Linux specific feature.
              */
-            for (x = 0; x < i; x++) {
-                off = 0;
-                bytes = sendfile(out_fd, in_fd, &off, off_inc);
-                if (bytes == -1) {
-                    perror("sendfile");
-                    fprintf(stderr, "error: cannot write inc records chunk\n");
-                }
-                else {
-                    total_bytes += bytes;
-                    total_records += increase_by;
-                    round_records += increase_by;
-                    round_bytes += bytes;
+            off = 0;
+            /* Dispatch the records chunk */
+            bytes = sendfile(out_fd, in_fd, &off, off_rec);
+            if (bytes == -1) {
+                perror("sendfile");
+                fprintf(stderr, "error: exception on writing records chunk\n");
+            }
+            else {
+                total_bytes += bytes;
+                total_records += records;
+                round_records += records;
+                round_bytes += bytes;
+            }
+
+            if (increase_by > 0 && i > 0) {
+                /*
+                 * Send incremental records, yeah, this involve a second system
+                 * call but it's better than writev() and data-copy.
+                 */
+                for (x = 0; x < i; x++) {
+                    off = 0;
+                    bytes = sendfile(out_fd, in_fd, &off, off_inc);
+                    if (bytes == -1) {
+                        perror("sendfile");
+                        fprintf(stderr, "error: cannot write inc records chunk\n");
+                    }
+                    else {
+                        total_bytes += bytes;
+                        total_records += increase_by;
+                        round_records += increase_by;
+                        round_bytes += bytes;
+                    }
                 }
             }
         }
@@ -321,6 +397,7 @@ int main(int argc, char **argv)
 {
     int ret;
     int opt;
+    int concurrency = DEFAULT_CONCURRENCY;
     int records = DEFAULT_RECORDS;
     int seconds = DEFAULT_SECONDS;
     int increase_by = DEFAULT_INC_BY;
@@ -337,6 +414,7 @@ int main(int argc, char **argv)
 
     /* Setup long-options */
     static const struct option long_opts[] = {
+        { "concurrency",   required_argument, NULL, 'c' },
         { "datafile"   ,   required_argument, NULL, 'd' },
         { "pid"        ,   required_argument, NULL, 'p' },
         { "output"     ,   required_argument, NULL, 'o' },
@@ -349,8 +427,11 @@ int main(int argc, char **argv)
     };
 
     while ((opt = getopt_long(argc, argv,
-                              "d:p:o:r:i:s:R:F:h", long_opts, NULL)) != -1) {
+                              "c:d:p:o:r:i:s:R:F:h", long_opts, NULL)) != -1) {
         switch (opt) {
+        case 'c':
+            concurrency = atoi(optarg);
+            break;
         case 'd':
             data_file = strdup(optarg);
             break;
@@ -437,7 +518,7 @@ int main(int argc, char **argv)
 
     ret = run_tcp_writer(pid, report, fmt_report, data_file,
                          host, port,
-                         records, increase_by, seconds);
+                         concurrency, records, increase_by, seconds);
 
     free(report);
     free(format);
