@@ -377,8 +377,9 @@ int main(int argc, char **argv)
     }
 
     if (!out_file) {
-        fprintf(stderr, "error: no output data file defined\n");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "warn: no output file has been specified, data will be send to "
+                "STDOUT\n");
+        out_file = strdup("/dev/stdout");
     }
 
     if (format) {
