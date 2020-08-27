@@ -290,7 +290,7 @@ static int run_fs_writer(pid_t pid,
             flb_proc_stat_destroy(t2);
 
         }
-
+        r->sum_records = total_records;
         flb_report_summary(r);
     }
 

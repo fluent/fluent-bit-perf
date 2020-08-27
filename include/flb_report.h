@@ -41,6 +41,7 @@ struct flb_report {
     /* General stats */
     size_t sum_bytes;    /* Total number of bytes */
     size_t sum_mem;      /* total number of bytes reported per snapshot */
+    size_t sum_records;  /* total number of log records */
     int sum_cpu_count;   /* CPU snapshots summarized */
     double sum_cpu;      /* total %CPU usage */
     double sum_duration; /* total elapsed time of tests */
