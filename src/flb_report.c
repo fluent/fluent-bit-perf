@@ -112,6 +112,7 @@ struct flb_report *flb_report_create(char *out, int format, int pid, int wait)
     r->sum_bytes = 0;
     r->sum_mem = 0;
     r->sum_cpu = 0.0;
+    r->sum_records = 0;
 
     if (r->pid >= 0) {
         t = flb_proc_stat_create(r->pid);
@@ -240,6 +241,9 @@ int flb_report_summary(struct flb_report *r)
 
     tmp = flb_report_human_readable_size(r->sum_bytes / r->sum_duration);
     dprintf(r->fd, "  - Avg Rate    : %s/sec\n", tmp);
+    tmp = flb_report_human_readable_size(r->sum_records / r->sum_duration);
+    dprintf(r->fd, "  - Avg Records : %s/sec\n", tmp);
+
     free(tmp);
 }
 
