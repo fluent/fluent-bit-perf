@@ -76,6 +76,13 @@ static void report_markdown_header(struct flb_report *r)
             "|     ---: |        ---: |---: |\n");
 }
 
+static void report_csv_header(struct flb_report *r)
+{
+    dprintf(r->fd,
+            "records,write_bytes,write_human,secs,cpu,user_ms,sys_ms,"
+            "mem_bytes,mem_human\n");
+}
+
 struct flb_report *flb_report_create(char *out, int format, int pid, int wait)
 {
     int fd;
@@ -130,6 +137,9 @@ struct flb_report *flb_report_create(char *out, int format, int pid, int wait)
     }
     else if (r->format == FLB_REPORT_MARKDOWN) {
         report_markdown_header(r);
+    }
+    else if (r->format == FLB_REPORT_CSV) {
+        report_csv_header(r);
     }
 
     return r;
@@ -202,6 +212,18 @@ int flb_report_stats(struct flb_report *r, int records,
         dprintf(r->fd,
                 "| %d | %zu | %s | %.2lf | %.2lf | %ld | %ld | "
                 "%ld | %s |\n",
+                records,
+                bytes,
+                bytes_hr,
+                duration,
+                cpu,
+                (t2->r_utime_ms - t1->r_utime_ms),
+                (t2->r_stime_ms - t1->r_stime_ms),
+                t2->r_rss,
+                rss_hr);
+    }
+    else if (r->format == FLB_REPORT_CSV) {
+        dprintf(r->fd, "%d,%zu,%s,%.2lf,%.2lf,%ld,%ld,%ld,%s\n",
                 records,
                 bytes,
                 bytes_hr,
