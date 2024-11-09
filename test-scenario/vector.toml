@@ -1,0 +1,32 @@
+data_dir = "/tmp/vector"
+
+# Data Sources
+[sources.file]
+  type = "file"
+  include = ["/tmp/test-scenario-vector.log"]
+  read_from = "beginning"
+
+# Parse JSON
+[transforms.json_parser]
+  type = "remap"
+  inputs = ["file"]
+  source = '''
+  . = parse_json!(.message)
+  '''
+
+# Add Non-Nested Keys
+#[transforms.add_keys]
+#  type = "remap"
+#  inputs = ["json_parser"]
+#  source = '''
+#  .custom_key_1 = "value1"
+#  .custom_key_2 = "value2"
+#  .custom_key_3 = "value3"
+#  .custom_key_4 = "value4"
+#  '''
+
+# Data Sinks
+[sinks.null]
+  type = "blackhole"  # Blackhole sink to discard the data
+  inputs = ["json_parser"]
+  healthcheck = false

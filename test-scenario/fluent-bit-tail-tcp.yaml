@@ -1,0 +1,19 @@
+service:
+  flush: 1
+  log_level: info
+
+parsers:
+  - name: json
+    format: json
+
+pipeline:
+  inputs:
+    - name: tail
+      path: /tmp/test-scenario-fluentbit.log
+      read_from_head: true
+      refresh_interval: 1
+      parser: json
+
+  outputs:
+    - name: null
+      match: '*'

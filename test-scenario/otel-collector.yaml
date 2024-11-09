@@ -1,0 +1,35 @@
+receivers:
+  filelog:
+    include: [/tmp/test-scenario-otel-contrib.log]
+    operators:
+      - type: json_parser
+
+# processors:
+#   attributes:
+#     actions:
+#       - key: custom_key_1
+#         value: "value1"
+#         action: insert
+#       - key: custom_key_2
+#         value: "value2"
+#         action: insert
+#       - key: custom_key_3
+#         value: "value3"
+#         action: insert
+#       - key: custom_key_4
+#         value: "value4"
+#         action: insert
+
+exporters:
+  nop: {}
+
+service:
+  pipelines:
+    logs:
+      receivers: [filelog]
+      processors: []
+      exporters: [nop]
+  telemetry:
+    logs:
+      level: "debug"
+
