@@ -56,6 +56,7 @@ static int flb_help(int rc)
            DEFAULT_SECONDS);
     printf("  -R, --report\t\t\tset report output file (default: stdout)\n");
     printf("  -F, --format\t\t\treport format, text (default) or markdown)\n");
+    printf("  -D, --delta-stop\t\tstop the test when the delta between two snapshots is near this value\n");
     printf("  -h, --help\t\t\tprint this help");
     printf("\n\n");
     exit(rc);
@@ -77,7 +78,7 @@ static int run_fs_writer(pid_t pid,
                          int fmt_report,
                          char *in_data_file, char *out_data_file,
                          int records, int increase_by,
-                         int seconds)
+                         int seconds, int delta_stop)
 {
     int i;
     int x;
@@ -270,7 +271,7 @@ static int run_fs_writer(pid_t pid,
             t2 = flb_proc_stat_create(pid);
             flb_report_stats(r, 0, 0, t1, t2);
 
-            if ((t2->r_utime_ms - t1->r_utime_ms) == 0) {
+            if ((t2->r_utime_ms - t1->r_utime_ms) <= delta_stop) {
                 count++;
             }
             else {
@@ -297,6 +298,8 @@ static int run_fs_writer(pid_t pid,
     if (r) {
         flb_report_destroy(r);
     }
+
+    return 0;
 }
 
 int main(int argc, char **argv)
@@ -306,6 +309,7 @@ int main(int argc, char **argv)
     int records = DEFAULT_RECORDS;
     int seconds = DEFAULT_SECONDS;
     int increase_by = DEFAULT_INC_BY;
+    int delta_stop = 0;
     int out_fd;
     int pid = -1;
     int fd_report;
@@ -325,11 +329,12 @@ int main(int argc, char **argv)
         { "seconds"    ,   required_argument, NULL, 's' },
         { "report"     ,   required_argument, NULL, 'R' },
         { "format"     ,   required_argument, NULL, 'F' },
+        { "delta_stop" ,   required_argument, NULL, 'D' },
         { "help"       ,   no_argument      , NULL, 'h' },
     };
 
     while ((opt = getopt_long(argc, argv,
-                              "d:p:o:r:i:s:R:F:h", long_opts, NULL)) != -1) {
+                              "d:p:o:r:i:s:R:F:D:h", long_opts, NULL)) != -1) {
         switch (opt) {
         case 'd':
             data_file = strdup(optarg);
@@ -354,6 +359,9 @@ int main(int argc, char **argv)
             break;
         case 'F':
             format = strdup(optarg);
+            break;
+        case 'D':
+            delta_stop = atoi(optarg);
             break;
         case 'h':
             flb_help(EXIT_SUCCESS);
@@ -389,6 +397,9 @@ int main(int argc, char **argv)
         else if (strcasecmp(format, "text") == 0) {
             fmt_report = FLB_REPORT_TXT;
         }
+        else if (strcasecmp(format, "csv") == 0) {
+            fmt_report = FLB_REPORT_CSV;
+        }
         else {
             fprintf(stderr, "error: invalid format type");
             exit(EXIT_FAILURE);
@@ -396,7 +407,7 @@ int main(int argc, char **argv)
     }
 
     ret = run_fs_writer(pid, report, fmt_report, data_file, out_file,
-                        records, increase_by, seconds);
+                        records, increase_by, seconds, delta_stop);
     if (ret == -1) {
         exit(EXIT_FAILURE);
     }

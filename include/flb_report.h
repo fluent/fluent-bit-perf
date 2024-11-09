@@ -23,6 +23,7 @@
 
 #define FLB_REPORT_TXT       0
 #define FLB_REPORT_MARKDOWN  1
+#define FLB_REPORT_CSV       2
 
 #include "flb_proc.h"
 
